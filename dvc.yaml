@@ -1,0 +1,101 @@
+stages:
+
+  # ── Stage 1 ───────────────────────────────────────────────────────────────
+  # Parse all TextGrid files → one row per phoneme token
+  parse_corpus:
+    cmd: python src/parse_corpus.py
+    deps:
+      - src/parse_corpus.py
+      - data/raw
+    params:
+      - data.raw_dir
+      - data.processed_dir
+    outs:
+      - data/processed/phonemes.csv
+    metrics:
+      - data/processed/corpus_stats.json:
+          cache: false
+
+  # ── Stage 2 ───────────────────────────────────────────────────────────────
+  # Extract acoustic features (F1, F2, F3, f0, duration, SCG) via parselmouth
+  extract_acoustics:
+    cmd: python src/extract_acoustics.py
+    deps:
+      - src/extract_acoustics.py
+      - data/processed/phonemes.csv
+    params:
+      - data.raw_dir
+      - acoustics
+    outs:
+      - data/acoustics/features_acoustic.csv
+    metrics:
+      - data/acoustics/extraction_stats.json:
+          cache: false
+
+  # ── Stage 3 ───────────────────────────────────────────────────────────────
+  # Extract XLS-R hidden states per phoneme token
+  # (adapted from numerical-stability extract_embeddings.py)
+  extract_neural_xlsr:
+    cmd: python src/extract_neural_xlsr.py
+    deps:
+      - src/extract_neural_xlsr.py
+      - data/processed/phonemes.csv
+    params:
+      - data.raw_dir
+      - xlsr
+    outs:
+      - data/neural/xlsr/features_xlsr.npz
+    metrics:
+      - data/neural/xlsr/extraction_stats.json:
+          cache: false
+
+  # ── Stage 4 ───────────────────────────────────────────────────────────────
+  # Extract Whisper encoder hidden states per phoneme token
+  extract_neural_whisper:
+    cmd: python src/extract_neural_whisper.py
+    deps:
+      - src/extract_neural_whisper.py
+      - data/processed/phonemes.csv
+    params:
+      - data.raw_dir
+      - whisper
+    outs:
+      - data/neural/whisper/features_whisper.npz
+    metrics:
+      - data/neural/whisper/extraction_stats.json:
+          cache: false
+
+  # ── Stage 5 ───────────────────────────────────────────────────────────────
+  # Lobanov normalisation (acoustic) + PCA/UMAP (neural)
+  normalise:
+    cmd: python src/normalise.py
+    deps:
+      - src/normalise.py
+      - data/acoustics/features_acoustic.csv
+      - data/neural/xlsr/features_xlsr.npz
+      - data/neural/whisper/features_whisper.npz
+    params:
+      - normalise
+    outs:
+      - data/normalised/features_acoustic_norm.csv
+      - data/normalised/features_xlsr_pca.npz
+      - data/normalised/features_whisper_pca.npz
+
+  # ── Stage 6 ───────────────────────────────────────────────────────────────
+  # All statistical analyses: descriptive stats, tests, LME, ROPE, clustering
+  analyse:
+    cmd: python src/analyse.py
+    deps:
+      - src/analyse.py
+      - data/normalised/features_acoustic_norm.csv
+      - data/normalised/features_xlsr_pca.npz
+      - data/normalised/features_whisper_pca.npz
+      - data/processed/phonemes.csv
+    params:
+      - analysis
+    outs:
+      - results/figures:
+          cache: false
+    metrics:
+      - results/stats_summary.json:
+          cache: false

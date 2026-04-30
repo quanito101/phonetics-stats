@@ -1,0 +1,82 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# params.yaml  –  single source of truth for the phonetics pipeline
+# Replaces the numerical-stability params.yaml entirely.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── corpus ────────────────────────────────────────────────────────────────────
+data:
+  raw_dir: data/raw           # place the ORTOLANG corpus here (unchanged)
+  processed_dir: data/processed
+
+# ── acoustic feature extraction ───────────────────────────────────────────────
+acoustics:
+  output_dir: data/acoustics
+
+  # parselmouth / LPC settings
+  formant_max_female: 5000    # Hz  (as specified in the project brief)
+  formant_max_male:   4500    # Hz
+  n_formants: 5
+  window_length: 0.025        # seconds
+  time_step: 0.005            # seconds
+
+  # long-vowel trajectory threshold (ms)
+  long_vowel_threshold_ms: 80
+
+  # which features to extract
+  features: [F1, F2, F3, f0, duration, SCG]
+
+# ── neural: XLS-R (adapted from numerical-stability extract_embeddings.py) ────
+xlsr:
+  model: facebook/wav2vec2-large-xlsr-53
+  # Layers to extract (1-indexed from 1; experiment with lower/middle/upper)
+  layers: [6, 12, 18]         # lower, middle, upper thirds
+  pooling: mean               # mean-pool over time steps in the phoneme window
+  target_sr: 16000
+  output_dir: data/neural/xlsr
+
+# ── neural: Whisper ───────────────────────────────────────────────────────────
+whisper:
+  model: openai/whisper-medium   # dWhisper = 1024
+  # Layers to extract (1-indexed; medium has 24 encoder layers)
+  layers: [4, 20]               # one from lower half (1-8), one from upper (17-24)
+  pooling: mean
+  target_sr: 16000
+  output_dir: data/neural/whisper
+
+# ── normalisation & dimensionality reduction ──────────────────────────────────
+normalise:
+  # Acoustic: Lobanov (z-score per speaker per formant, vowels only)
+  lobanov_output: data/acoustics/features_acoustic_norm.csv
+
+  # Neural: PCA for statistics, UMAP for visualisation
+  pca_components_stats: 50    # for clustering & LME
+  pca_components_viz: 2       # for scatter plots
+  umap_components: 2
+  umap_n_neighbors: 15
+  umap_min_dist: 0.1
+  output_dir: data/normalised
+
+# ── statistical analysis ──────────────────────────────────────────────────────
+analysis:
+  output_dir: results
+  figures_dir: results/figures
+
+  # Bootstrap
+  bootstrap_B: 2000           # Section 8: CIs on cosine distance
+  permutation_B: 5000         # Section 6: permutation test
+
+  # ROPE boundaries
+  acoustic_rope_hz: 20        # ±20 Hz for F1/F2 contrasts (Section 8.3.1)
+  # Neural ROPE: set empirically as mean intra-speaker cosine distance (computed at runtime)
+
+  # FDR correction method
+  fdr_method: bh              # Benjamini-Hochberg
+
+  # Clustering
+  linkage: ward
+  # Silhouette k range
+  k_min: 2
+  k_max: 10
+
+  # Leave-one-speaker-out CV (nearest-centroid classifier)
+  loso_cv: true
