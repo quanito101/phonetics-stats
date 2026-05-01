@@ -1,0 +1,65 @@
+schema: '2.0'
+stages:
+  parse_corpus:
+    cmd: python src/parse_corpus.py
+    deps:
+    - path: data/raw
+      hash: md5
+      md5: baa17b32cb73a7e60757fd7f80212a00.dir
+      size: 738309514
+      nfiles: 5931
+    - path: src/parse_corpus.py
+      hash: md5
+      md5: 5227a797543df785ec8c8f6f17504844
+      size: 11613
+    params:
+      params.yaml:
+        data.processed_dir: data/processed
+        data.raw_dir: data/raw
+    outs:
+    - path: data/processed/corpus_stats.json
+      hash: md5
+      md5: 48c398b94a233cf9108eb6dd5597a6cf
+      size: 1378
+    - path: data/processed/phonemes.csv
+      hash: md5
+      md5: 971ec4c86fcd61bc940afc269db7aac7
+      size: 2873941
+  extract_acoustics:
+    cmd: python src/extract_acoustics.py
+    deps:
+    - path: data/processed/phonemes.csv
+      hash: md5
+      md5: 971ec4c86fcd61bc940afc269db7aac7
+      size: 2873941
+    - path: src/extract_acoustics.py
+      hash: md5
+      md5: d327115100f5dd07afa379c2c8f7f162
+      size: 11898
+    params:
+      params.yaml:
+        acoustics:
+          output_dir: data/acoustics
+          formant_max_female: 5000
+          formant_max_male: 4500
+          n_formants: 5
+          window_length: 0.025
+          time_step: 0.005
+          long_vowel_threshold_ms: 80
+          features:
+          - F1
+          - F2
+          - F3
+          - f0
+          - duration
+          - SCG
+        data.raw_dir: data/raw
+    outs:
+    - path: data/acoustics/extraction_stats.json
+      hash: md5
+      md5: 306e294c4e96b48b428dfa4a7372eed0
+      size: 708
+    - path: data/acoustics/features_acoustic.csv
+      hash: md5
+      md5: 63dda9ce40285b9faac0cbeb4e289dbd
+      size: 4302034
